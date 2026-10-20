@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blitz - Overlay LIVE PRO</title>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* ================== CONFIGURA AQUI ================== */
+/* Textos, tiempos y etiquetas: edita el objeto CONFIG en el bloque de script al final */
+:root{
+  --pink:#ff2d95;
+  --violet:#7a35ff;
+  --cyan:#22e5ff;
+  --ink:#07030f;
+  --white:#fff4fb;
+  --glass:rgba(20,8,40,.62);
+  --seg:5s;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;background:transparent;overflow:hidden}
+#stage{
+  position:absolute;left:0;top:0;width:1920px;height:1080px;
+  transform-origin:0 0;
+  font-family:'Rajdhani','Segoe UI',sans-serif;color:var(--white);
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ---------- Fondo con huecos (game, chat, spotify) ---------- */
+/* Huecos: game 30,100 1440x810 | spotify 1530,663 360x377 */
+.bg,#fx{
+  clip-path:path(evenodd,
+    "M0 0H1920V1080H0Z M30 100H1470V910H30Z M1530 663H1890V1040H1530Z");
+}
+.bg{position:absolute;inset:0;background:var(--ink);overflow:hidden}
+.bg .mesh{
+  position:absolute;inset:-300px;
+  background:
+    radial-gradient(900px 560px at 12% 0%, rgba(122,53,255,.45), transparent 70%),
+    radial-gradient(800px 520px at 100% 100%, rgba(255,45,149,.38), transparent 70%),
+    radial-gradient(600px 420px at 55% 55%, rgba(34,229,255,.10), transparent 70%);
+  animation:mesh 18s ease-in-out infinite alternate;
+}
+@keyframes mesh{from{transform:translate3d(-40px,-20px,0) scale(1)}to{transform:translate3d(60px,30px,0) scale(1.08)}}
+.bg .stripes{
+  position:absolute;inset:-200px;
+  background:repeating-linear-gradient(115deg, rgba(255,45,149,.06) 0 2px, transparent 2px 46px);
+  animation:drift 14s linear infinite;
+}
+@keyframes drift{to{transform:translateX(92px)}}
+.bg .grid{
+  position:absolute;inset:0;opacity:.5;
+  background-image:
+    linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+  background-size:60px 60px;
+  -webkit-mask:radial-gradient(ellipse at center, transparent 30%, #000 100%);
+          mask:radial-gradient(ellipse at center, transparent 30%, #000 100%);
+}
+/* reflectores que barren el fondo */
+.bg .beam{
+  position:absolute;width:1500px;height:1500px;mix-blend-mode:screen;will-change:transform;
+}
+.bg .beam.a{
+  left:-750px;top:-750px;
+  background:conic-gradient(from 0deg, transparent 0 86%, rgba(255,45,149,.20) 93%, transparent 100%);
+  animation:rot 15s linear infinite;
+}
+.bg .beam.b{
+  left:1170px;top:330px;
+  background:conic-gradient(from 180deg, transparent 0 86%, rgba(34,229,255,.16) 93%, transparent 100%);
+  animation:rot 19s linear infinite reverse;
+}
+@keyframes rot{to{transform:rotate(360deg)}}
+/* barra de escaneo que baja */
+.bg .scanbar{
+  position:absolute;left:0;right:0;top:-160px;height:160px;
+  background:linear-gradient(180deg,transparent,rgba(255,255,255,.04),rgba(34,229,255,.12),transparent);
+  animation:scanbar 9s linear infinite;
+}
+@keyframes scanbar{to{transform:translateY(1400px)}}
+.bg .scan{
+  position:absolute;inset:0;
+  background:repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0 1px, transparent 1px 3px);
+  mix-blend-mode:multiply;
+}
+.bg .vig{
+  position:absolute;inset:0;
+  background:radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.55) 100%);
+}
+#sparks{position:absolute;inset:0;width:1920px;height:1080px}
+#fx{position:absolute;left:0;top:0;width:1920px;height:1080px;pointer-events:none}
+
+/* ---------- Marcos ---------- */
+.frame{position:absolute;pointer-events:none}
+.frame::before{
+  content:"";position:absolute;inset:0;border-radius:6px;
+  box-shadow:0 0 34px 2px rgba(255,45,149,.45), 0 0 70px 6px rgba(122,53,255,.28);
+  animation:breathe 4s ease-in-out infinite alternate;
+}
+@keyframes breathe{from{opacity:.45}to{opacity:1}}
+.frame .edge{
+  position:absolute;inset:0;border-radius:6px;padding:4px;
+  background:conic-gradient(from var(--a,0deg), var(--pink), var(--violet), var(--cyan), var(--violet), var(--pink));
+  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;
+  animation:spin 6s linear infinite;
+  transition:filter .6s;
+}
+/* cometa blanco que recorre el borde */
+.frame .edge::after{
+  content:"";position:absolute;inset:0;border-radius:6px;
+  background:conic-gradient(from var(--b,0deg), transparent 0 80%, rgba(255,255,255,.0) 82%, rgba(255,255,255,.95) 97%, transparent 100%);
+  animation:spinb 3.6s linear infinite;
+}
+.frame::after{
+  content:"";position:absolute;inset:4px;border-radius:3px;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.65), inset 0 0 22px rgba(0,0,0,.35);
+}
+@property --a{syntax:'<angle>';inherits:false;initial-value:0deg}
+@property --b{syntax:'<angle>';inherits:false;initial-value:0deg}
+@keyframes spin{to{--a:360deg}}
+@keyframes spinb{to{--b:360deg}}
+.frame .corner{position:absolute;width:38px;height:38px;border:4px solid var(--white);filter:drop-shadow(0 0 6px var(--cyan));animation:cpulse 2.4s ease-in-out infinite}
+@keyframes cpulse{0%,100%{opacity:1}50%{opacity:.55}}
+.frame .tl{left:-9px;top:-9px;border-right:0;border-bottom:0}
+.frame .tr{right:-9px;top:-9px;border-left:0;border-bottom:0;animation-delay:-.6s}
+.frame .bl{left:-9px;bottom:-9px;border-right:0;border-top:0;animation-delay:-1.2s}
+.frame .br{right:-9px;bottom:-9px;border-left:0;border-top:0;animation-delay:-1.8s}
+#gameFrame{left:30px;top:100px;width:1440px;height:810px}
+#spotFrame{left:1530px;top:663px;width:360px;height:377px}
+.hit .frame .edge{filter:brightness(1.8) saturate(1.3)}
+
+/* ---------- Pestañas sobre los marcos ---------- */
+.tab{
+  position:absolute;top:80px;height:18px;padding:0 12px;display:flex;align-items:center;gap:8px;
+  font-weight:700;font-size:13px;letter-spacing:4px;color:var(--white);
+  background:var(--glass);border:1px solid rgba(255,255,255,.14);border-bottom:2px solid var(--pink);
+  border-radius:3px 3px 0 0;
+}
+.tab i{width:7px;height:7px;border-radius:50%;background:var(--pink);box-shadow:0 0 8px var(--pink);animation:blink 1.2s infinite}
+@keyframes blink{50%{opacity:.25}}
+#tabGame{left:76px}
+
+/* ---------- Barra superior ---------- */
+.top{position:absolute;left:30px;top:14px;width:1860px;height:70px;display:flex;align-items:center;gap:26px}
+.logo{display:flex;align-items:center;gap:10px;position:relative}
+.logo svg{width:46px;height:56px;filter:drop-shadow(0 0 12px var(--pink));animation:flicker 5s infinite}
+@keyframes flicker{0%,93%,100%{opacity:1}94%{opacity:.55}95%{opacity:1}97%{opacity:.7}}
+.logo .word{
+  font-family:'Anton','Impact',sans-serif;font-size:60px;line-height:1;letter-spacing:4px;
+  transform:skewX(-10deg);
+  background:
+    linear-gradient(100deg,transparent 42%,rgba(255,255,255,.95) 50%,transparent 58%) 150% 0/250% 100% no-repeat,
+    linear-gradient(180deg,#fff 8%,#ffc4e3 45%,var(--pink) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 14px rgba(255,45,149,.65)) drop-shadow(0 3px 0 rgba(0,0,0,.35));
+  animation:shine 6s ease-in-out infinite;
+}
+@keyframes shine{0%,55%{background-position:150% 0,0 0}100%{background-position:-60% 0,0 0}}
+.live{
+  position:relative;display:flex;align-items:center;gap:9px;padding:7px 18px;border-radius:4px;
+  background:linear-gradient(135deg,#ff4aa8,var(--pink) 55%,#d10f73);
+  font-weight:700;font-size:24px;letter-spacing:3px;transform:skewX(-10deg);
+  box-shadow:0 0 18px rgba(255,45,149,.6), inset 0 1px 0 rgba(255,255,255,.45);
+  overflow:hidden;
+}
+.live::after{
+  content:"";position:absolute;top:0;bottom:0;width:40px;left:-60px;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);
+  animation:livesheen 3.4s ease-in-out infinite;
+}
+@keyframes livesheen{0%,60%{left:-60px}100%{left:140%}}
+.live i{position:relative;width:12px;height:12px;border-radius:50%;background:#fff}
+.live i::after{
+  content:"";position:absolute;inset:0;border-radius:50%;background:#fff;
+  animation:ping 1.6s ease-out infinite;
+}
+@keyframes ping{0%{transform:scale(1);opacity:.8}100%{transform:scale(3.2);opacity:0}}
+.ticker{
+  flex:1;height:46px;overflow:hidden;position:relative;border-radius:3px;
+  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,0));
+  border-top:2px solid rgba(255,255,255,.2);border-bottom:2px solid rgba(255,45,149,.45);
+  -webkit-mask:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);
+          mask:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);
+}
+.ticker::after{ /* destello que cruza el ticker */
+  content:"";position:absolute;top:0;bottom:0;width:120px;left:-160px;
+  background:linear-gradient(100deg,transparent,rgba(34,229,255,.28),transparent);
+  transform:skewX(-20deg);animation:tsheen 5s ease-in-out infinite;
+}
+@keyframes tsheen{0%,45%{left:-160px}100%{left:110%}}
+.ticker .track{
+  position:absolute;white-space:nowrap;line-height:42px;font-size:25px;font-weight:700;letter-spacing:3px;
+  animation:marquee 32s linear infinite;
+}
+.ticker b{color:var(--cyan);margin:0 26px;text-shadow:0 0 10px var(--cyan)}
+@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.clock{
+  display:flex;align-items:center;gap:10px;height:46px;padding:0 18px;border-radius:4px;
+  background:var(--glass);border:1px solid rgba(255,255,255,.14);
+  font-family:'Anton','Impact',sans-serif;font-size:28px;letter-spacing:3px;color:var(--white);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12);
+}
+.clock::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 10px var(--cyan);animation:blink 1s infinite}
+
+/* ---------- Barra inferior (debajo del juego) ---------- */
+.bottom{
+  position:absolute;left:30px;top:930px;width:1440px;height:110px;
+  display:flex;align-items:center;gap:26px;padding:0 30px 0 28px;overflow:hidden;
+  background:
+    linear-gradient(90deg,rgba(122,53,255,.34),rgba(255,45,149,.2)),
+    var(--glass);
+  border-left:6px solid var(--pink);border-radius:4px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.14), 0 0 30px rgba(122,53,255,.25);
+}
+.bottom::before{
+  content:"";position:absolute;top:0;bottom:0;width:180px;left:-220px;
+  background:linear-gradient(100deg,transparent,rgba(255,255,255,.14),transparent);
+  transform:skewX(-20deg);animation:sheen 7s ease-in-out infinite;
+}
+@keyframes sheen{0%,60%{left:-220px}100%{left:1500px}}
+.bottom .tag{
+  font-family:'Anton','Impact',sans-serif;font-size:34px;letter-spacing:3px;color:var(--cyan);
+  min-width:210px;transform:skewX(-10deg);text-shadow:0 0 14px rgba(34,229,255,.7);
+  animation:tagpulse 3s ease-in-out infinite;
+}
+@keyframes tagpulse{0%,100%{text-shadow:0 0 10px rgba(34,229,255,.5)}50%{text-shadow:0 0 22px rgba(34,229,255,.95)}}
+.bottom .tag small{display:block;font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;letter-spacing:4px;color:rgba(255,255,255,.55);text-shadow:none;margin-top:2px}
+.msgbox{position:relative;flex:1;height:64px;overflow:hidden}
+.msg{
+  position:absolute;left:0;top:0;width:100%;height:64px;line-height:64px;white-space:nowrap;
+  font-size:40px;font-weight:700;letter-spacing:1px;text-shadow:0 2px 12px rgba(0,0,0,.5);
+  opacity:0;transition:opacity .35s;
+}
+.msg.on{opacity:1}
+.msg .ch{display:inline-block;white-space:pre}
+.msg.on .ch{animation:chIn .6s cubic-bezier(.2,.9,.3,1) backwards;animation-delay:calc(var(--i) * 22ms)}
+@keyframes chIn{
+  0%{opacity:0;transform:translateY(34px) scale(.7);filter:blur(6px);color:var(--cyan)}
+  60%{color:#fff}
+  100%{opacity:1;transform:none;filter:none}
+}
+.chev{display:flex;gap:4px}
+.chev i{
+  width:14px;height:30px;background:var(--pink);opacity:.25;
+  clip-path:polygon(0 0,100% 50%,0 100%,35% 50%);
+  animation:chev 1.2s infinite;
+}
+.chev i:nth-child(2){animation-delay:.15s;background:var(--violet)}
+.chev i:nth-child(3){animation-delay:.3s;background:var(--cyan)}
+@keyframes chev{0%,100%{opacity:.2}30%{opacity:1}}
+.count{
+  font-family:'Anton','Impact',sans-serif;font-size:30px;letter-spacing:3px;color:rgba(255,255,255,.75);
+  padding:6px 14px;border-radius:4px;background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.12);
+}
+.count b{color:var(--pink);font-weight:400}
+.bar{
+  position:absolute;left:0;bottom:0;height:5px;width:100%;transform-origin:left;transform:scaleX(0);
+  background:linear-gradient(90deg,var(--pink),var(--violet),var(--cyan));
+  box-shadow:0 0 12px var(--pink);
+}
+.bar.run{animation:fill var(--seg) linear forwards}
+@keyframes fill{to{transform:scaleX(1)}}
+
+/* ---------- Etiqueta de musica ---------- */
+.np{
+  position:absolute;left:1510px;top:626px;width:380px;height:30px;display:flex;align-items:center;gap:12px;
+  padding:0 14px;border-radius:4px;overflow:hidden;
+  background:var(--glass);border:1px solid rgba(255,255,255,.12);border-left:4px solid var(--cyan);
+  font-weight:700;font-size:18px;letter-spacing:4px;color:var(--cyan);
+}
+.np::after{
+  content:"";position:absolute;top:0;bottom:0;width:60px;left:-80px;
+  background:linear-gradient(100deg,transparent,rgba(34,229,255,.3),transparent);
+  transform:skewX(-20deg);animation:npsheen 4.5s ease-in-out infinite;
+}
+@keyframes npsheen{0%,50%{left:-80px}100%{left:110%}}
+.eq{display:flex;align-items:flex-end;gap:3px;height:20px}
+.eq span{width:5px;background:linear-gradient(180deg,var(--cyan),var(--pink));border-radius:2px;animation:eq 1s ease-in-out infinite}
+.eq span:nth-child(1){animation-delay:-.2s}.eq span:nth-child(2){animation-delay:-.6s}
+.eq span:nth-child(3){animation-delay:-.4s}.eq span:nth-child(4){animation-delay:-.8s}
+.eq span:nth-child(5){animation-delay:-.1s}
+@keyframes eq{0%,100%{height:5px}50%{height:20px}}
+
+/* ---------- Rayo (momento memorable) ---------- */
+.flash{
+  position:absolute;inset:0;pointer-events:none;opacity:0;
+  background:radial-gradient(640px 320px at 120px 50px, rgba(255,255,255,.9), rgba(255,45,149,.35) 40%, transparent 70%);
+  clip-path:path(evenodd,"M0 0H1920V1080H0Z M30 100H1470V910H30Z M1530 663H1890V1040H1530Z");
+}
+.flash.go{animation:flash .9s ease-out}
+@keyframes flash{0%{opacity:0}8%{opacity:1}16%{opacity:.2}26%{opacity:.9}100%{opacity:0}}
+.logo.zap svg{animation:zap .9s}
+@keyframes zap{0%,100%{transform:none}10%{transform:scale(1.35) rotate(-6deg)}22%{transform:scale(1)}30%{transform:scale(1.2) rotate(4deg)}}
+.logo.zap .word{animation:glitch .5s steps(2,end)}
+@keyframes glitch{0%{transform:skewX(-10deg) translateX(0)}20%{transform:skewX(-10deg) translateX(-5px)}40%{transform:skewX(-10deg) translateX(6px)}60%{transform:skewX(-10deg) translateX(-3px)}100%{transform:skewX(-10deg) translateX(0)}}
+.ring{
+  position:absolute;left:53px;top:49px;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;
+  border:3px solid var(--white);pointer-events:none;opacity:0;
+  box-shadow:0 0 20px var(--pink), inset 0 0 20px var(--pink);
+}
+.ring.go{animation:ring .8s ease-out}
+@keyframes ring{0%{opacity:.9;transform:scale(.3)}100%{opacity:0;transform:scale(7)}}
+.streak{
+  position:absolute;left:0;top:50px;width:1920px;height:4px;pointer-events:none;opacity:0;
+  background:linear-gradient(90deg,transparent,#fff,var(--pink),transparent);
+  filter:drop-shadow(0 0 10px var(--pink));
+}
+.streak.go{animation:streak .7s ease-out}
+@keyframes streak{0%{opacity:1;transform:translateX(-1920px)}100%{opacity:0;transform:translateX(1920px)}}
+
+/* ---------- Panel de redes (en el espacio del chat) ---------- */
+.social{position:absolute;left:1510px;top:100px;width:380px;height:520px;display:flex;flex-direction:column;gap:16px}
+.shead{
+  height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;border-radius:4px;
+  background:linear-gradient(90deg,rgba(122,53,255,.34),rgba(255,45,149,.2)),var(--glass);
+  border-left:6px solid var(--pink);box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 0 30px rgba(122,53,255,.25);
+  opacity:0;animation:sIn .8s cubic-bezier(.2,.9,.3,1) .2s forwards;
+}
+.shead span{font-family:'Anton','Impact',sans-serif;font-size:34px;letter-spacing:5px;color:var(--cyan);transform:skewX(-10deg);text-shadow:0 0 14px rgba(34,229,255,.7)}
+.sitem{
+  position:relative;flex:1;padding:0 24px;display:flex;flex-direction:column;justify-content:center;gap:14px;overflow:hidden;border-radius:4px;
+  background:linear-gradient(90deg,rgba(122,53,255,.3),rgba(255,45,149,.16)),var(--glass);
+  border-left:6px solid var(--violet);box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 0 24px rgba(122,53,255,.2);
+  opacity:0;animation:sIn .8s cubic-bezier(.2,.9,.3,1) forwards;animation-delay:calc(.45s + var(--k) * .18s);
+  transition:border-color .5s, box-shadow .5s;
+}
+.sitem.act{border-left-color:var(--pink);box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 0 34px rgba(255,45,149,.45)}
+.sitem::after{content:"";position:absolute;top:0;bottom:0;width:90px;left:-140px;background:linear-gradient(100deg,transparent,rgba(255,255,255,.18),transparent);transform:skewX(-20deg);animation:ssheen 6s ease-in-out infinite;animation-delay:calc(var(--k) * 1.4s)}
+@keyframes ssheen{0%,55%{left:-140px}100%{left:110%}}
+.srow{display:flex;align-items:center;gap:14px}
+.sico{width:52px;height:52px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--pink),var(--violet));box-shadow:0 0 18px rgba(255,45,149,.55)}
+.sico svg{width:30px;height:30px;stroke:#fff;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.slabel{font-weight:700;font-size:22px;letter-spacing:8px;color:rgba(255,255,255,.72)}
+.shandle{display:inline-block;align-self:flex-start;font-family:'Anton','Impact',sans-serif;font-weight:400;font-size:38px;letter-spacing:2px;color:var(--cyan);white-space:nowrap;transform:skewX(-8deg);transform-origin:left;text-shadow:0 0 16px rgba(34,229,255,.7)}
+.sfoot{
+  height:52px;display:flex;align-items:center;justify-content:center;border-radius:4px;border:1px solid rgba(255,255,255,.14);background:var(--glass);
+  font-family:'Anton','Impact',sans-serif;font-size:22px;letter-spacing:7px;color:rgba(255,255,255,.88);
+  opacity:0;animation:sIn .8s cubic-bezier(.2,.9,.3,1) .9s forwards;
+}
+@keyframes sIn{from{opacity:0;transform:translateX(60px);filter:blur(8px)}to{opacity:1;transform:none;filter:none}}
+
+@media (prefers-reduced-motion:reduce){
+  .bg .mesh,.bg .stripes,.bg .beam,.bg .scanbar,.frame .edge,.frame .edge::after,.frame::before,.frame .corner,
+  .ticker .track,.ticker::after,.eq span,.bottom::before,.np::after,.live::after,.logo .word,.chev i{animation:none}
+}
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <div class="bg">
+    <div class="mesh"></div>
+    <div class="stripes"></div>
+    <div class="grid"></div>
+    <div class="beam a"></div>
+    <div class="beam b"></div>
+    <canvas id="sparks" width="1920" height="1080"></canvas>
+    <div class="scanbar"></div>
+    <div class="scan"></div>
+    <div class="vig"></div>
+  </div>
+  <div class="flash" id="flash"></div>
+  <div class="streak" id="streak"></div>
+
+  <!-- Marcos de las ventanas -->
+  <div class="frame" id="gameFrame"><div class="edge"></div><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i></div>
+  <div class="frame" id="spotFrame"><div class="edge"></div><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i></div>
+
+  <!-- Pestañas -->
+  <div class="tab" id="tabGame"><i></i>GAMEPLAY</div>
+
+  <!-- Panel de redes (donde estaba el chat) -->
+  <div class="social" id="social">
+    <div class="shead"><span id="sTitle"></span><div class="chev"><i></i><i></i><i></i></div></div>
+    <div class="sfoot" id="sFoot"></div>
+  </div>
+
+  <!-- Barra superior -->
+  <div class="top">
+    <div class="logo" id="logo">
+      <svg viewBox="0 0 46 56"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset=".5" stop-color="#ffb3dc"/><stop offset="1" stop-color="#ff2d95"/></linearGradient></defs>
+        <path d="M28 0 L4 32 H20 L14 56 L42 20 H25 Z" fill="url(#g)"/></svg>
+      <span class="word">BLITZ</span>
+      <div class="ring" id="ring"></div>
+    </div>
+    <div class="live"><i></i>EN VIVO</div>
+    <div class="ticker"><div class="track" id="track"></div></div>
+    <div class="clock" id="clock">--:--</div>
+  </div>
+
+  <!-- Etiqueta musica -->
+  <div class="np"><div class="eq"><span></span><span></span><span></span><span></span><span></span></div>SONANDO AHORA</div>
+
+  <!-- Barra inferior -->
+  <div class="bottom">
+    <div class="tag" id="tag">BLITZ LIVE<small id="sub"></small></div>
+    <div class="msgbox" id="msgbox"></div>
+    <div class="chev"><i></i><i></i><i></i></div>
+    <div class="count" id="count"></div>
+    <div class="bar" id="bar"></div>
+  </div>
+
+  <!-- Rayo electrico (sobre la barra superior, respeta los huecos) -->
+  <canvas id="fx" width="1920" height="1080"></canvas>
+</div>
+
+<script>
+/* ================== CONFIG ================== */
+const CONFIG = {
+  ticker: ["SIGUE A BLITZ EN TIKTOK","DEJA TU LIKE","COMPARTE EL LIVE","ACTIVA LA CAMPANITA","BIENVENIDO A LA FAMILIA BLITZ"],
+  mensajes: [
+    "Sigue a Blitz y no te pierdas nada",
+    "Dale like para subir la energia",
+    "Comparte el LIVE con tus amigos"
+  ],
+  etiqueta: "BLITZ LIVE",          // texto grande a la izquierda de la barra inferior
+  subetiqueta: "NO TE LO PIERDAS",  // texto pequeno debajo (deja "" para ocultarlo)
+  mostrarReloj: true,               // reloj arriba a la derecha
+  segundosPorMensaje: 5,
+  segundosEntreRayos: 9,
+  tituloRedes: "SÍGUENOS",
+  redes: [                                // cambia o agrega las que quieras
+    { red: "TIKTOK",    usuario: "@rs_blitz" },
+    { red: "INSTAGRAM", usuario: "@rs_blitz_oficial" }
+  ],
+  pieRedes: "FAMILIA BLITZ"
+};
+
+/* ----- Escalar a la ventana (1920x1080) ----- */
+const stage=document.getElementById('stage');
+function fit(){const s=Math.min(innerWidth/1920,innerHeight/1080);stage.style.transform='scale('+s+')'}
+addEventListener('resize',fit);fit();
+
+/* ----- Etiquetas ----- */
+const tag=document.getElementById('tag'),sub=document.getElementById('sub');
+tag.firstChild.nodeValue=CONFIG.etiqueta;
+sub.textContent=CONFIG.subetiqueta;sub.style.display=CONFIG.subetiqueta?'block':'none';
+
+/* ----- Ticker ----- */
+const t=CONFIG.ticker.map(x=>x+'<b>&#9889;</b>').join('');
+document.getElementById('track').innerHTML=t+t+t+t;
+
+/* ----- Reloj ----- */
+const clk=document.getElementById('clock');
+if(!CONFIG.mostrarReloj){clk.style.display='none'}
+function updClock(){clk.textContent=new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',hour12:false})}
+updClock();setInterval(updClock,1000);
+
+/* ----- Mensajes rotativos (letra por letra) + contador + progreso ----- */
+const box=document.getElementById('msgbox');
+const cnt=document.getElementById('count');
+const bar=document.getElementById('bar');
+document.documentElement.style.setProperty('--seg',CONFIG.segundosPorMensaje+'s');
+const pad=n=>String(n).padStart(2,'0');
+const els=CONFIG.mensajes.map(m=>{
+  const d=document.createElement('div');d.className='msg';
+  [...m].forEach((ch,k)=>{const s=document.createElement('span');s.className='ch';s.style.setProperty('--i',k);s.textContent=ch;d.appendChild(s)});
+  box.appendChild(d);return d;
+});
+let i=0;
+function setCount(){cnt.innerHTML='<b>'+pad(i+1)+'</b>/'+pad(els.length)}
+function runBar(){bar.classList.remove('run');void bar.offsetWidth;bar.classList.add('run')}
+els[0].classList.add('on');setCount();runBar();
+if(els.length<2){cnt.style.display='none'}
+setInterval(()=>{
+  if(els.length<2)return;
+  els[i].classList.remove('on');
+  i=(i+1)%els.length;
+  els[i].classList.add('on');setCount();runBar();
+},CONFIG.segundosPorMensaje*1000);
+
+/* ----- Rayo periodico ----- */
+let bolt=null;
+function makeBolt(){
+  const pts=[];let px=110,py=50;
+  while(px<1860){pts.push([px,py]);px+=16+Math.random()*26;py=50+(Math.random()-.5)*36}
+  /* ramales cortos */
+  const forks=[];
+  for(let k=0;k<3;k++){
+    const s=pts[Math.floor(Math.random()*(pts.length-6))+2];const dir=Math.random()>.5?1:-1;
+    const f=[[s[0],s[1]]];let fx=s[0],fy=s[1];
+    for(let j=0;j<4;j++){fx+=14+Math.random()*12;fy+=dir*(8+Math.random()*10);f.push([fx,Math.max(18,Math.min(82,fy))])}
+    forks.push(f);
+  }
+  bolt={pts,forks,life:1};
+}
+function zap(){
+  ['flash','streak','ring'].forEach(id=>{const e=document.getElementById(id);e.classList.remove('go');void e.offsetWidth;e.classList.add('go')});
+  const l=document.getElementById('logo');l.classList.remove('zap');void l.offsetWidth;l.classList.add('zap');
+  stage.classList.add('hit');setTimeout(()=>stage.classList.remove('hit'),900);
+  makeBolt();
+}
+setTimeout(zap,1200);
+setInterval(zap,CONFIG.segundosEntreRayos*1000);
+
+/* ----- Panel de redes ----- */
+(function(){
+  const soc=document.getElementById('social'),foot=document.getElementById('sFoot');
+  document.getElementById('sTitle').textContent=CONFIG.tituloRedes;
+  foot.textContent='⚡  '+CONFIG.pieRedes+'  ⚡';
+  const ICON={
+    TIKTOK:'<svg viewBox="0 0 24 24"><path d="M14 3v11.5a3.5 3.5 0 1 1-3.5-3.5"/><path d="M14 3c.4 2.6 2 4.3 5 4.6"/></svg>',
+    INSTAGRAM:'<svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r=".6"/></svg>',
+    DEFAULT:'<svg viewBox="0 0 24 24"><path d="M13 2 5 14h6l-1 8 9-13h-6z"/></svg>'
+  };
+  const items=CONFIG.redes.map((r,k)=>{
+    const d=document.createElement('div');d.className='sitem';d.style.setProperty('--k',k);
+    d.innerHTML='<div class="srow"><div class="sico">'+(ICON[r.red.toUpperCase()]||ICON.DEFAULT)+'</div><div class="slabel"></div></div><div class="shandle"></div>';
+    d.querySelector('.slabel').textContent=r.red;d.querySelector('.shandle').textContent=r.usuario;
+    soc.insertBefore(d,foot);return d;
+  });
+  function fitHandles(){items.forEach(d=>{const h=d.querySelector('.shandle');let fs=38;h.style.fontSize=fs+'px';while(h.scrollWidth>d.clientWidth-64&&fs>16){fs--;h.style.fontSize=fs+'px'}})}
+  fitHandles();if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fitHandles);
+  let a=0;const pulse=()=>{items.forEach((d,k)=>d.classList.toggle('act',k===a%items.length));a++};
+  pulse();if(items.length>1)setInterval(pulse,3500);
+})();
+
+/* ----- Chispas + estrellas fugaces + rayo (un solo bucle) ----- */
+const c=document.getElementById('sparks'),x=c.getContext('2d');
+const fxc=document.getElementById('fx'),f=fxc.getContext('2d');
+const COLS=['#ff2d95','#7a35ff','#22e5ff'];
+const SPR=COLS.map(col=>{
+  const s=document.createElement('canvas');s.width=s.height=64;
+  const g=s.getContext('2d'),gr=g.createRadialGradient(32,32,0,32,32,32);
+  gr.addColorStop(0,'#ffffffff');gr.addColorStop(.25,col+'dd');gr.addColorStop(1,col+'00');
+  g.fillStyle=gr;g.fillRect(0,0,64,64);return s;
+});
+const P=Array.from({length:80},()=>{
+  const depth=Math.random();
+  return{
+    x:Math.random()*1920,y:Math.random()*1080,
+    s:10+depth*depth*46,
+    v:.25+depth*1.2,d:(Math.random()-.5)*.45,
+    c:Math.floor(Math.random()*3),
+    a:.25+Math.random()*.55,ph:Math.random()*6.28,sp:.01+Math.random()*.03
+  };
+});
+const S=[]; /* estrellas fugaces */
+function spawnStar(){
+  S.push({x:Math.random()*1700,y:Math.random()*420,vx:16+Math.random()*8,vy:7+Math.random()*5,life:1,c:Math.floor(Math.random()*3)});
+}
+function tick(){
+  x.globalCompositeOperation='lighter';
+  x.clearRect(0,0,1920,1080);
+  for(const p of P){
+    p.y-=p.v;p.x+=p.d;p.ph+=p.sp;
+    if(p.y<-60){p.y=1140;p.x=Math.random()*1920}
+    x.globalAlpha=p.a*(.65+.35*Math.sin(p.ph));
+    x.drawImage(SPR[p.c],p.x-p.s/2,p.y-p.s/2,p.s,p.s);
+  }
+  if(Math.random()<.005)spawnStar();
+  for(let k=S.length-1;k>=0;k--){
+    const s=S[k];s.x+=s.vx;s.y+=s.vy;s.life-=.018;
+    if(s.life<=0||s.x>1980||s.y>1100){S.splice(k,1);continue}
+    const tx=s.x-s.vx*9,ty=s.y-s.vy*9;
+    const gr=x.createLinearGradient(s.x,s.y,tx,ty);
+    gr.addColorStop(0,'rgba(255,255,255,1)');gr.addColorStop(.3,COLS[s.c]+'cc');gr.addColorStop(1,COLS[s.c]+'00');
+    x.globalAlpha=Math.min(1,s.life*1.5);x.strokeStyle=gr;x.lineWidth=3;x.lineCap='round';
+    x.beginPath();x.moveTo(s.x,s.y);x.lineTo(tx,ty);x.stroke();
+  }
+  /* rayo electrico sobre la barra superior */
+  f.clearRect(0,0,1920,1080);
+  if(bolt){
+    bolt.life-=.04;
+    if(bolt.life<=0){bolt=null}else{
+      const reveal=Math.min(1,(1-bolt.life)*6);
+      const n=Math.max(2,Math.floor(bolt.pts.length*reveal));
+      const a=Math.min(1,bolt.life*1.8)*(Math.random()>.18?1:.4);
+      f.lineJoin='round';f.lineCap='round';
+      const path=(arr,m)=>{f.beginPath();f.moveTo(arr[0][0],arr[0][1]);for(let k=1;k<(m||arr.length);k++)f.lineTo(arr[k][0],arr[k][1])};
+      f.globalAlpha=a*.45;f.strokeStyle='#ff2d95';f.shadowColor='#ff2d95';f.shadowBlur=22;f.lineWidth=9;path(bolt.pts,n);f.stroke();
+      f.globalAlpha=a;f.strokeStyle='#ffffff';f.shadowColor='#22e5ff';f.shadowBlur=14;f.lineWidth=2.5;path(bolt.pts,n);f.stroke();
+      if(reveal>.5){bolt.forks.forEach(fk=>{f.globalAlpha=a*.8;f.lineWidth=1.6;path(fk);f.stroke()})}
+      f.shadowBlur=0;
+    }
+  }
+  requestAnimationFrame(tick);
+}
+tick();
+</script>
+</body>
+</html>
